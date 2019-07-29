@@ -37,8 +37,18 @@ df_t$ppt_id <- as.numeric(df_t$ppt_id)
 # next merge on demographics and test if distributions are different across them 
 df <- read.csv("/Users/danagoin/Documents/CiOB-ECHO/CiOB2/questionnaire.csv") 
 
-# recode key variables  
+# recode and/or create key variables  
 
+# maternal age 
+df$visit_date <- strptime(df$scndtri_dt, format="%Y-%m-%d")
+df$mb_date <- strptime(df$dob_m, format="%Y-%m-%d")
+
+df$mage <- as.numeric(difftime(df$visit_date, df$mb_date, units="days")/365)
+# one person's visit date is their bday, not sure why but it's causing their age to be 0 so I'm assuming it's a mistake 
+df$mage <- ifelse(df$mage==0 & !is.na(df$mage), NA, df$mage)
+
+
+# maternal education 
 df$mat_edu <- ifelse(df$edu_m>=97, NA, df$edu_m)                   
 df$mat_edu <- factor(df$mat_edu, levels=c(0,1,2,3,4,5), 
                      labels=c("Less than high school","High school grad","Some college","College grad","Master's degree","Doctoral degree"))
@@ -74,6 +84,9 @@ df$latina_coo <- ifelse(df$country_m==1, 1,
                              ifelse(df$country_m==3, 3, NA)))
 
 df$latina_coo <- factor(df$latina_coo, levels=c(1,2,3), labels=c("Mexico","El Salvador","Other"))
+
+# create nativity variable 
+df$us_born <- ifelse(df$born_us_m==1,1,ifelse(df$born_us_m==0,0,NA))
 
 
 # create income categories 
@@ -127,6 +140,19 @@ df_m <- left_join(df_t, df_c)
 # can't do one-way anova, at least on untransformed data, because it's very skewed and/or bimodal 
 # could test difference in medians using Wilcoxon rank sum test 
 
+# Aolin's paper used the following
+# kruskal-wallis rank sum test was used to compare the rank order of peak area values 
+# this does one-way ANOVA on ranks, and is a non-parametric test to tell whether samples came from the same distribution 
+# is an extension of the Mann-Whitney U test which is only for 2 samples 
+# the parametric version is just one-way ANOVA 
+# for suspect features in fewer than 20% of participants, she used Fisher's exact test 
+# adjust for multiple comparisons using B-H FDR 
+# Aolin did a log-2 transform 
 
+kruskal.test(C24H49NO3_16.186764 ~ mat_race_eth, data=df_m)
+kruskal.test(C24H49NO3_16.186764 ~ hh_income_cat, data=df_m)
+kruskal.test(C24H49NO3_16.186764 ~ mat_edu, data=df_m)
+kruskal.test(C24H49NO3_16.186764 ~ latina_coo, data=df_m)
+kruskal.test(C24H49NO3_16.186764 ~ marital, data=df_m)
 
 
