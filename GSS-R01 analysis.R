@@ -116,12 +116,16 @@ df$hh_income_cat3 <-  ifelse(df$income_hh==16,3,
                             ifelse(df$hh_income_cat2==2, 2, 
                                    ifelse(df$hh_income_cat3==3, 3, NA)))
  
+ # for now just keep race, education, income, and nativity
+ 
+df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, latina_coo)
+ 
 # merge with chemical data 
-df_m <- left_join(df_t, df)
+df_m <- left_join(df_t, df_c)
 
-
-# just keep chemicals and one demographic factor at the moment 
-
+# test whether the distributions differ across categories 
+# can't do one-way anova, at least on untransformed data, because it's very skewed and/or bimodal 
+# could test difference in medians using Wilcoxon rank sum test 
 
 
 
