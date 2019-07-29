@@ -39,13 +39,13 @@ df <- read.csv("/Users/danagoin/Documents/CiOB-ECHO/CiOB2/questionnaire.csv")
 
 # recode and/or create key variables  
 
-# maternal age 
-df$visit_date <- strptime(df$scndtri_dt, format="%Y-%m-%d")
-df$mb_date <- strptime(df$dob_m, format="%Y-%m-%d")
+# calculated maternal age 
+#df$visit_date <- strptime(df$scndtri_dt, format="%Y-%m-%d")
+#df$mb_date <- strptime(df$dob_m, format="%Y-%m-%d")
 
-df$mage <- as.numeric(difftime(df$visit_date, df$mb_date, units="days")/365)
+#df$mage <- as.numeric(difftime(df$visit_date, df$mb_date, units="days")/365)
 # one person's visit date is their bday, not sure why but it's causing their age to be 0 so I'm assuming it's a mistake 
-df$mage <- ifelse(df$mage==0 & !is.na(df$mage), NA, df$mage)
+#df$mage <- ifelse(df$mage==0 & !is.na(df$mage), NA, df$mage)
 
 
 # maternal education 
@@ -85,8 +85,22 @@ df$latina_coo <- ifelse(df$country_m==1, 1,
 
 df$latina_coo <- factor(df$latina_coo, levels=c(1,2,3), labels=c("Mexico","El Salvador","Other"))
 
+# read in medical record abstraction data 
+df_mr <- read.csv("/Users/danagoin/Documents/CiOB-ECHO/CiOB2/medicalrecordabstraction.csv")
+# just keep age variable 
+df_mr <- df_mr %>% select(ppt_id, age_dlvry_mr)
+
+# merge with the rest of the data 
+df <- left_join(df, df_mr)
+
+
 # create nativity variable 
 df$us_born <- ifelse(df$born_us_m==1,1,ifelse(df$born_us_m==0,0,NA))
+table(df$us_born)
+df$us_born <- ifelse(df$yrs_us_m<df$age_dlvry_mr & !is.na(df$yrs_us_m) & !is.na(df$age_dlvry_mr) & df$us_born!=1, 0, 
+                     ifelse(df$yrs_us_m>=df$age_dlvry_mr & !is.na(df$yrs_us_m) & !is.na(df$age_dlvry_mr),1, df$us_born))
+table(df$us_born)
+
 
 
 # create income categories 
@@ -131,10 +145,23 @@ df$hh_income_cat3 <-  ifelse(df$income_hh==16,3,
  
  # for now just keep race, education, income, and nativity
  
-df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, latina_coo)
+df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, us_born, age_dlvry_mr)
  
 # merge with chemical data 
 df_m <- left_join(df_t, df_c)
+
+# descriptive statistics 
+# calculated versus medical record age
+#table(df_m$mage, exclude=NULL)
+table(df_m$age_dlvry_mr, exclude=NULL)
+
+df_m %>% summarise(mean=mean(age_dlvry_mr), sd=sqrt(var(age_dlvry_mr)))
+df_m %>% group_by(mat_race_eth) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(marital) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(mat_edu) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(hh_income_cat) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+
 
 # test whether the distributions differ across categories 
 # can't do one-way anova, at least on untransformed data, because it's very skewed and/or bimodal 
