@@ -205,18 +205,29 @@ df_t <- df_m %>% select(ppt_id, sample_type, names(df_m)[x])
 
 df_ts <- spread(df_t, key=sample_type, value=names(df_t)[3])
 
-cor_result <- cor(df_ts$M, df_ts$C, use="pairwise.complete.obs")
-return(cor_result)
+cor_result <- cor(log(df_ts$M), log(df_ts$C), use="pairwise.complete.obs")
+cor_test <- cor.test(log(df_ts$M), log(df_ts$C), method="spearman")
+return(cbind(cor_result, cor_test$p.value))
 }
 
 cor_list <- lapply(10:dim(df_m)[2], function(x) ms_cb_corr(x))
 
-cor_df <- do.call(rbind, cor_list)
+cor_df <- data.frame(do.call(rbind, cor_list))
+names(cor_df) <- c("correlation","p.value")
 
-kruskal.test(C24H49NO3_16.186764 ~ mat_race_eth, data=df_m)
-kruskal.test(C24H49NO3_16.186764 ~ hh_income_cat, data=df_m)
-kruskal.test(C24H49NO3_16.186764 ~ mat_edu, data=df_m)
-kruskal.test(C24H49NO3_16.186764 ~ latina_coo, data=df_m)
-kruskal.test(C24H49NO3_16.186764 ~ marital, data=df_m)
+cor_p1 <- ggplot(cor_df, aes(x=correlation)) + geom_histogram(fill="#225ea8", colour="black") + theme_bw()
+ggsave(cor_p1, file="/Users/danagoin/Documents/R01 GSS New Methods/results/correlations_ms_cb.pdf")
+
+cor_p2 <- ggplot(cor_df, aes(x=p.value)) + geom_histogram(fill="#225ea8", colour="black") + theme_bw()
+ggsave(cor_p2, file="/Users/danagoin/Documents/R01 GSS New Methods/results/p_values_ms_cb.pdf")
+
+
+
+
+kruskal.test(C24H49NO3_16.186764 ~ mat_race_eth, data=df_ms)
+kruskal.test(C24H49NO3_16.186764 ~ hh_income_cat, data=df_ms)
+kruskal.test(C24H49NO3_16.186764 ~ mat_edu, data=df_ms)
+kruskal.test(C24H49NO3_16.186764 ~ latina_coo, data=df_ms)
+kruskal.test(C24H49NO3_16.186764 ~ marital, data=df_ms)
 
 
