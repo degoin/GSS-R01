@@ -176,6 +176,28 @@ df_m %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N
 # adjust for multiple comparisons using B-H FDR 
 # Aolin did a log-2 transform 
 
+# I have paired samples though -- how to deal with that?
+# for now just analyze them separately 
+
+# bring all demographic vars to the front of the data set 
+df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, everything())
+
+# maternal serum 
+df_ms <- df_m %>% filter(sample_type=="M")
+# cord blood 
+df_cb <- df_m %>% filter(sample_type=="C")
+
+
+# maternal serum descriptive stats 
+df_ms %>% summarise(mean=mean(age_dlvry_mr), sd=sqrt(var(age_dlvry_mr)))
+df_ms %>% group_by(mat_race_eth) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_ms %>% group_by(marital) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_ms %>% group_by(mat_edu) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_ms %>% group_by(hh_income_cat) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_ms %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+
+
+
 kruskal.test(C24H49NO3_16.186764 ~ mat_race_eth, data=df_m)
 kruskal.test(C24H49NO3_16.186764 ~ hh_income_cat, data=df_m)
 kruskal.test(C24H49NO3_16.186764 ~ mat_edu, data=df_m)
