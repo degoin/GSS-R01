@@ -197,6 +197,21 @@ df_ms %>% group_by(hh_income_cat) %>% summarise(N=n())  %>% mutate(proportion = 
 df_ms %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
 
 
+# correlations betwen maternal serum and cord blood abundances 
+
+ms_cb_corr <- function(x) {
+
+df_t <- df_m %>% select(ppt_id, sample_type, names(df_m)[x])
+
+df_ts <- spread(df_t, key=sample_type, value=names(df_t)[3])
+
+cor_result <- cor(df_ts$M, df_ts$C, use="pairwise.complete.obs")
+return(cor_result)
+}
+
+cor_list <- lapply(10:dim(df_m)[2], function(x) ms_cb_corr(x))
+
+cor_df <- do.call(rbind, cor_list)
 
 kruskal.test(C24H49NO3_16.186764 ~ mat_race_eth, data=df_m)
 kruskal.test(C24H49NO3_16.186764 ~ hh_income_cat, data=df_m)
