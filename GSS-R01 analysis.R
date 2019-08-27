@@ -2,14 +2,12 @@
 library(tidyverse)
 # this is the data that Dimitri has cleaned 
 # the rows are the chemical features and the columns are the samples 
-df_all <- read.csv("/Users/danagoin/Documents/R01 GSS New Methods/Data/R01_150_clean_dataset.csv")
+df_all <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GSS New Methods/data/R01_150_isomeric_clean_dataset_2.0.csv")
 
 # the values are unitless, but represents the abundance, which is the integration / the area under the curve for plots of intensity versus time 
 #  the retention time is the time that the chemicals appear in the chromatograph 
 # DF means the detection frequency of the samples 
 # the Score has to do with the quality of the deconvoluion of the peaks--only peaks with scores above 60 or 70 are usually kept 
-
-
 
 
 # create chemical id, which is the combination of the chemical formula and the retention time 
@@ -20,7 +18,7 @@ df_chem <- df_all %>% select(chem_id, Formula, Retention.Time, Ionization.mode, 
 
 # remove chemical variables for transposing data
 df_all <- df_all %>% select(chem_id, everything(), -X, -Compound, -Formula, -Retention.Time, -Ionization.mode, -Mass, -Score)
-rownames(df_all) <- df_all$chem_id
+chems <- rownames(df_all) <- df_all$chem_id
 df_all <- df_all %>% select(-chem_id)
 
 # transpose data and create ids for sample, ppt_id to merge with covariates, and indicator of whether it's a maternal or cord blood sample 
@@ -35,7 +33,7 @@ df_t <- df_t %>% select(sample_id, ppt_id, sample_type, everything())
 df_t$ppt_id <- as.numeric(df_t$ppt_id)
 
 # next merge on demographics and test if distributions are different across them 
-df <- read.csv("/Users/danagoin/Documents/CiOB-ECHO/CiOB2/questionnaire.csv") 
+df <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/CiOB2 data/questionnaire.csv") 
 
 # recode and/or create key variables  
 
@@ -86,7 +84,7 @@ df$latina_coo <- ifelse(df$country_m==1, 1,
 df$latina_coo <- factor(df$latina_coo, levels=c(1,2,3), labels=c("Mexico","El Salvador","Other"))
 
 # read in medical record abstraction data 
-df_mr <- read.csv("/Users/danagoin/Documents/CiOB-ECHO/CiOB2/medicalrecordabstraction.csv")
+df_mr <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/CiOB2 data/medicalrecordabstraction.csv")
 # just keep age variable 
 df_mr <- df_mr %>% select(ppt_id, age_dlvry_mr)
 
@@ -182,10 +180,40 @@ df_m %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N
 # bring all demographic vars to the front of the data set 
 df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, everything())
 
+# replace with 0 if abundance was below 2*10^5 
+
+for(i in 1:length(chems)){
+        df_m[[chems[i]]] <- ifelse(df_m[[chems[i]]]<2*10^5,0,df_m[[chems[i]]])
+}
+
+# identify chemicals who have abundance above threshold for >=80% of participants 
+
+chems_detected <- apply(df_m[,10:length(df_m),], 2, function(x) sum(x>0)/dim(df_m)[1])
+
+list_80pct <- chems_detected[chems_detected>=0.8]
+# there are 77 with more than 80% above abundance cutoff 
+
+df_ms <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, names(list_80pct))
+
+
 # maternal serum 
-df_ms <- df_m %>% filter(sample_type=="M")
+df_ms_serum <- df_ms %>% filter(sample_type=="M")
+
+
+
 # cord blood 
-df_cb <- df_m %>% filter(sample_type=="C")
+df_ms_cb <- df_ms %>% filter(sample_type=="C")
+
+# see how presence of chemicals differs by demographics 
+
+bplot <- function(dem, i) {
+ggplot(df_ms, aes(x=factor(get(dem)), y=get(names(list_80pct)[i]))) + 
+        theme_bw()  + geom_boxplot() + labs(x="",y=names(list_80pct)[i]) 
+}
+
+bplot("mat_edu", 76)
+
+
 
 
 # maternal serum descriptive stats 
@@ -207,13 +235,18 @@ df_ts <- spread(df_t, key=sample_type, value=names(df_t)[3])
 
 cor_result <- cor(log(df_ts$M), log(df_ts$C), use="pairwise.complete.obs")
 cor_test <- cor.test(log(df_ts$M), log(df_ts$C), method="spearman")
-return(cbind(cor_result, cor_test$p.value))
+
+cord_ms_ratio <- log(df_ts$C)/log(df_ts$M)
+
+results <- cbind(cor_result, cor_test$p.value, median(cord_ms_ratio, na.rm=T))
+
+return(results)
 }
 
 cor_list <- lapply(10:dim(df_m)[2], function(x) ms_cb_corr(x))
 
 cor_df <- data.frame(do.call(rbind, cor_list))
-names(cor_df) <- c("correlation","p.value")
+names(cor_df) <- c("correlation","p.value", "median_cb_ms_ratio")
 
 cor_p1 <- ggplot(cor_df, aes(x=correlation)) + geom_histogram(fill="#225ea8", colour="black") + theme_bw()
 ggsave(cor_p1, file="/Users/danagoin/Documents/R01 GSS New Methods/results/correlations_ms_cb.pdf")
@@ -221,6 +254,9 @@ ggsave(cor_p1, file="/Users/danagoin/Documents/R01 GSS New Methods/results/corre
 cor_p2 <- ggplot(cor_df, aes(x=p.value)) + geom_histogram(fill="#225ea8", colour="black") + theme_bw()
 ggsave(cor_p2, file="/Users/danagoin/Documents/R01 GSS New Methods/results/p_values_ms_cb.pdf")
 
+# note: in Rachel's paper she said they only looked at the ratio among those where the chemical was detected 
+cor_p3 <- ggplot(cor_df, aes(x=median_cb_ms_ratio)) + geom_histogram(fill="#225ea8", colour="black") + theme_bw()
+ggsave(cor_p2, file="/Users/danagoin/Documents/R01 GSS New Methods/results/p_values_ms_cb.pdf")
 
 
 
