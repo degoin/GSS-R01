@@ -2,7 +2,14 @@
 library(tidyverse)
 # this is the data that Dimitri has cleaned 
 # the rows are the chemical features and the columns are the samples 
-df_all <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GSS New Methods/data/R01_150_isomeric_clean_dataset_2.0.csv")
+df_all_is <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GSS New Methods/data/R01_150_isomeric_clean_dataset_2.0.csv")
+df_all_un <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GSS New Methods/data/R01_150_clean_dataset.csv")
+
+df_all <- data.frame(rbind(df_all_is, df_all_un))
+# add unique chemicals too 
+# add cleaning and dietary habits to demographics 
+# compare white versus other race/ethnic groups
+
 
 # the values are unitless, but represents the abundance, which is the integration / the area under the curve for plots of intensity versus time 
 #  the retention time is the time that the chemicals appear in the chromatograph 
@@ -12,6 +19,7 @@ df_all <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GS
 
 # create chemical id, which is the combination of the chemical formula and the retention time 
 df_all$chem_id <- paste0(df_all$Formula,"_", df_all$Retention.Time)
+df_all$chem_id <- ifelse(df_all$chem_id=="TPP D15_4.40746262", "TPP_D15_4.40746262", df_all$chem_id)
 
 # save variables related to chemical formulas if we need them 
 df_chem <- df_all %>% select(chem_id, Formula, Retention.Time, Ionization.mode, Mass, Score, Compound)
@@ -83,6 +91,96 @@ df$latina_coo <- ifelse(df$country_m==1, 1,
 
 df$latina_coo <- factor(df$latina_coo, levels=c(1,2,3), labels=c("Mexico","El Salvador","Other"))
 
+
+# vitamins 
+df$vitamin_cat <- factor(df$vitamins, levels=c(0,1,2,3), labels=c("None","1-3 times a week","4-6 times a week","Every day of the week"))
+
+# smoking 
+df$ever_smk <- ifelse(df$smk_last_u>0 & df$smk_last_u<97,1,ifelse(df$smk_last_u==0,0,NA))
+
+# alcohol consumption 
+df$alcohol <- ifelse((df$alcohol_12m==0 | df$alcohol_last_u==0), 0, # never drinker
+                     ifelse(((df$alcohol_last_u==3 & df$alcohol_last>3) | (df$alcohol_last_u==4 & df$alcohol_last>0) | df$alcohol_12m==1), 1, # had last drink more than 3 months ago, at least 1 year ago, or not in the last year
+                            ifelse((df$alcohol_last_u %in% c(1,2) | (df$alcohol_last_u==5 & df$alcohol_last<90) | (df$alcohol_last_u==3 & df$alcohol_last<=3) | df$alcohol_today==1), 2, NA))) # had last drink within minutes or hours, or within 90 days, or  
+
+df$alcohol <- ifelse(is.na(df$alcohol) & df$alcohol_12m %in% c(2,3,4,5,6,7,8,9,10), 1, df$alcohol) # if we don't have information from other questions but they said they had had some frequency of drinking in the past year, code them as previous drinker
+df$alcohol <- factor(df$alcohol, levels=c(0,1,2), labels=c("Never drinker","Previous drinker","Current or recent drinker"))
+
+# working status 
+df$employment <- ifelse(df$work_stat %in% c(97,98,99), NA, df$work_stat)
+df$employment <- factor(df$employment, levels=c(1,2,4,5,6), labels = c("Working","Looking for work","Raising children","Student","Other"))
+
+# occupation 
+health_care <- c("physician","nurs","acupunctur","accupunctur","doctor","fellow","resident", "medical","np", "therapist", "pediatrician", "pharmacist", "rn","chiropractor", "clinical","dentist","phlebotomist","psychologist","optometrist")
+research <- c("research","post doc", "post-doc","statistician","scientist","biologist","epidemiologist","economist")
+legal <- c("lawyer","attorney","prosecutor","legal","court","law")
+caregiving <- c("babysit","baby sit","care","home","nanny")
+cleaning <- c("janitor", "clean", "keep", "limpieza")
+education <- c("teacher","professor","speech","librarian","principal", "school","student","tutor")
+service <- c("cashier","cajera", "retail","clerk", "driver","rental car","UPS","street","train","gym","firefighter","boat")
+food <- c("server","catering","cook","chef","busser","take out","food","restaurant","waitress","Mc Donalds","produce","deli","barista")
+business <- c("receptionist","assistant","realtor","real estate","entrepreneur","entrepenuer","business","quality assurance","security","insurance","executive","account","administrat","analyst","human resource","program officer","communications","HR","recruit", "consultant","manage","finance","design","policy","tech","corporate","marketing","marketer","sales","engineer","data science","supply chain","public relations","workforce")
+arts <- c("writer", "art","photo","producer","gaffer","film","yoga","life coach")
+
+#"receptionist", "guard", "UPS", "security", "street inspector","training","trainer","gym","life coach", "real estate","yoga"
+# program assistant 
+df$occupation  <- ifelse(grepl(paste(health_care, collapse="|"),df$job1, ignore.case = T),1,
+                         ifelse(grepl(paste(research, collapse="|"), df$job1, ignore.case=T), 2, 
+                                ifelse(grepl(paste(legal, collapse="|"), df$job1, ignore.case=T), 3, 
+                                       ifelse(grepl(paste(caregiving, collapse="|"), df$job1, ignore.case=T), 4, 
+                                              ifelse(grepl(paste(cleaning, collapse="|"), df$job1, ignore.case=T), 5, 
+                                                           ifelse(grepl(paste(education, collapse="|"), df$job1, ignore.case=T), 6, 
+                                                                  ifelse(grepl(paste(service, collapse="|"), df$job1, ignore.case=T), 7, 
+                                                                         ifelse(grepl(paste(food, collapse="|"), df$job1, ignore.case=T), 8, 
+                                                                                ifelse(grepl(paste(business, collapse="|"), df$job1, ignore.case=T), 9, 
+                                                                                       ifelse(grepl(paste(arts, collapse="|"), df$job1, ignore.case=T), 10, NA))))))))))
+
+df$occupation <- factor(df$occupation, levels=c(1,2,3,4,5,6,7,8,9,10), labels=c("Health care","Research","Legal","Care giving","Sanitation","Education","Service","Food","Business","Arts"))
+
+
+# consider adding information from second job -- how to create hierarchy?
+table(df$occupation, exclude=NULL)
+df$job1[is.na(df$occupation)]
+
+# eating habits 
+df$takeout_freq <- ifelse(df$fdx_takeout>95,NA,
+                          ifelse(df$fdx_takeout>=4 & df$fdx_takeout<95, 4, df$fdx_takeout))
+
+df$takeout_freq <- factor(df$takeout_freq, levels=c(1,2,3,4), labels=c("Less than once a month","1-3 times a month","Once a week","More than once a week"))
+
+
+df$prepared_freq <- ifelse(df$fdx_prepare>95,NA, 
+                           ifelse(df$fdx_prepare<=4, 4, df$fdx_prepare))
+
+df$prepared_freq <- factor(df$prepared_freq, levels=c(4,5,6,7), labels=c("Every other day or less","4-6 times a week","Once a day","More than once a day"))
+
+
+# personal product use 
+
+products_daily <- c("prod_daily_shampoo", "prod_daily_makeup", "prod_daily_hairspray","prod_daily_lipbalm","prod_daily_lotion","prod_daily_sunscreen","prod_daily_deodorant","prod_daily_vagwash","prod_daily_perfume","prod_daily_nailpolish","prod_daily_colgate")
+
+
+products_today <- c("prod_today_shampoo", "prod_today_makeup", "prod_today_hairspray","prod_today_lipbalm","prod_today_lotion","prod_today_sunscreen","prod_today_deodorant","prod_today_vagwash","prod_today_perfume","prod_today_nailpolish","prod_today_colgate")
+
+
+# cleaning product use 
+
+cleaning_daily <- c("cln_daily_bleach","cln_daily_airfresh","cln_daily_ammonia","cln_daily_candles","cln_daily_solvents","cln_daily_sprays","cln_daily_polish")
+
+cleaning_today <- c("cln_today_bleach","cln_today_airfresh","cln_today_ammonia","cln_today_candles","cln_today_solvents","cln_today_sprays","cln_today_polish")
+
+
+# specific food frequencies -- ask if these questions came from a specific source and if there are guidelines about how to analyze them
+
+# cooking behaviors 
+df$teflon_num <- ifelse(df$pots >95, NA, 
+                        ifelse(df$pots>=8 & df$pots<95, 8, df$pots))
+
+df$teflon_scratch <- ifelse(df$pots_scr>95, NA, 
+                            ifelse(df$pots_scr>=6,6, df$pots_scr))
+
+ 
+
 # read in medical record abstraction data 
 df_mr <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/CiOB2 data/medicalrecordabstraction.csv")
 # just keep age variable 
@@ -143,7 +241,8 @@ df$hh_income_cat3 <-  ifelse(df$income_hh==16,3,
  
  # for now just keep race, education, income, and nativity
  
-df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, us_born, age_dlvry_mr)
+df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, us_born, age_dlvry_mr, 
+                      occupation, takeout_freq, prepared_freq, products_daily, products_today, cleaning_daily, cleaning_today)
  
 # merge with chemical data 
 df_m <- left_join(df_t, df_c)
@@ -178,12 +277,14 @@ df_m %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N
 # for now just analyze them separately 
 
 # bring all demographic vars to the front of the data set 
-df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, everything())
+df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, 
+                        occupation, takeout_freq, prepared_freq, products_daily, products_today, cleaning_daily, cleaning_today, everything())
 
-# replace with 0 if abundance was below 2*10^5 
+# replace with 0 if abundance was below 2*10^5  -- check if this is really 10^4
 
 for(i in 1:length(chems)){
-        df_m[[chems[i]]] <- ifelse(df_m[[chems[i]]]<2*10^5,0,df_m[[chems[i]]])
+        print(i)
+        df_m[[chems[i]]] <- ifelse(df_m[[chems[i]]]<2*10^5,0, df_m[[chems[i]]])
 }
 
 # identify chemicals who have abundance above threshold for >=80% of participants 
@@ -191,7 +292,7 @@ for(i in 1:length(chems)){
 chems_detected <- apply(df_m[,10:length(df_m),], 2, function(x) sum(x>0)/dim(df_m)[1])
 
 list_80pct <- chems_detected[chems_detected>=0.8]
-# there are 77 with more than 80% above abundance cutoff 
+# there are 322 with more than 80% above abundance cutoff 
 
 df_ms <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, names(list_80pct))
 
@@ -211,7 +312,7 @@ ggplot(df_ms, aes(x=factor(get(dem)), y=get(names(list_80pct)[i]))) +
         theme_bw()  + geom_boxplot() + labs(x="",y=names(list_80pct)[i]) 
 }
 
-bplot("mat_edu", 76)
+bplot("us_born", 76)
 
 
 
