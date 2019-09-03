@@ -1,3 +1,5 @@
+rm(list=ls())
+
 
 library(tidyverse)
 # this is the data that Dimitri has cleaned 
@@ -19,7 +21,8 @@ df_all <- data.frame(rbind(df_all_is, df_all_un))
 
 # create chemical id, which is the combination of the chemical formula and the retention time 
 df_all$chem_id <- paste0(df_all$Formula,"_", df_all$Retention.Time)
-df_all$chem_id <- ifelse(df_all$chem_id=="TPP D15_4.40746262", "TPP_D15_4.40746262", df_all$chem_id)
+df_all$chem_id <- ifelse(df_all$chem_id=="TPP D15_4.40746262", "TPP_D15_4.40746262",
+                         ifelse(df_all$chem_id=="DL-Cotinine D3_3.41909841", "DL_Cotinine_D3_3.41909841", df_all$chem_id))
 
 # save variables related to chemical formulas if we need them 
 df_chem <- df_all %>% select(chem_id, Formula, Retention.Time, Ionization.mode, Mass, Score, Compound)
@@ -288,13 +291,17 @@ for(i in 1:length(chems)){
 }
 
 # identify chemicals who have abundance above threshold for >=80% of participants 
+m <- length(df_m) - length(chems)
 
-chems_detected <- apply(df_m[,10:length(df_m),], 2, function(x) sum(x>0)/dim(df_m)[1])
+chems_detected <- apply(df_m[,m:length(df_m),], 2, function(x) sum(x>0)/dim(df_m)[1])
 
 list_80pct <- chems_detected[chems_detected>=0.8]
-# there are 322 with more than 80% above abundance cutoff 
+length(list_80pct)
+# there are 121 with more than 80% above abundance cutoff 
 
-df_ms <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, names(list_80pct))
+df_ms <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, 
+                         occupation, takeout_freq, prepared_freq, products_daily, products_today, cleaning_daily, cleaning_today, 
+                         names(list_80pct))
 
 
 # maternal serum 
@@ -310,9 +317,11 @@ df_ms_cb <- df_ms %>% filter(sample_type=="C")
 bplot <- function(dem, i) {
 ggplot(df_ms, aes(x=factor(get(dem)), y=get(names(list_80pct)[i]))) + 
         theme_bw()  + geom_boxplot() + labs(x="",y=names(list_80pct)[i]) 
+        
 }
 
-bplot("us_born", 76)
+
+bplot("occupation", 5)
 
 
 
