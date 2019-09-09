@@ -4,8 +4,8 @@ rm(list=ls())
 library(tidyverse)
 # this is the data that Dimitri has cleaned 
 # the rows are the chemical features and the columns are the samples 
-df_all_is <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GSS New Methods/data/R01_150_isomeric_clean_dataset_2.0.csv")
-df_all_un <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/R01 GSS New Methods/data/R01_150_clean_dataset.csv")
+df_all_is <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/data/R01_150_isomeric_clean_dataset_2.0.csv")
+df_all_un <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/data/R01_150_clean_dataset.csv")
 
 df_all <- data.frame(rbind(df_all_is, df_all_un))
 # add unique chemicals too 
@@ -30,6 +30,7 @@ df_chem <- df_all %>% select(chem_id, Formula, Retention.Time, Ionization.mode, 
 # remove chemical variables for transposing data
 df_all <- df_all %>% select(chem_id, everything(), -X, -Compound, -Formula, -Retention.Time, -Ionization.mode, -Mass, -Score)
 chems <- rownames(df_all) <- df_all$chem_id
+# 721 unique chemicals
 df_all <- df_all %>% select(-chem_id)
 
 # transpose data and create ids for sample, ppt_id to merge with covariates, and indicator of whether it's a maternal or cord blood sample 
@@ -44,7 +45,7 @@ df_t <- df_t %>% select(sample_id, ppt_id, sample_type, everything())
 df_t$ppt_id <- as.numeric(df_t$ppt_id)
 
 # next merge on demographics and test if distributions are different across them 
-df <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/CiOB2 data/questionnaire.csv") 
+df <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Data/CiOB2 data/questionnaire.csv") 
 
 # recode and/or create key variables  
 
@@ -185,7 +186,7 @@ df$teflon_scratch <- ifelse(df$pots_scr>95, NA,
  
 
 # read in medical record abstraction data 
-df_mr <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/CiOB2 data/medicalrecordabstraction.csv")
+df_mr <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Data/CiOB2 data/medicalrecordabstraction.csv")
 # just keep age variable 
 df_mr <- df_mr %>% select(ppt_id, age_dlvry_mr)
 
@@ -241,6 +242,10 @@ df$hh_income_cat3 <-  ifelse(df$income_hh==16,3,
  df$hh_income_cat <- ifelse(df$hh_income_cat1==1,1, 
                             ifelse(df$hh_income_cat2==2, 2, 
                                    ifelse(df$hh_income_cat3==3, 3, NA)))
+ 
+ 
+ 
+ 
  
  # for now just keep race, education, income, and nativity
  
