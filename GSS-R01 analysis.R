@@ -2,6 +2,7 @@ rm(list=ls())
 
 
 library(tidyverse)
+library(ggridges)
 # this is the data that Dimitri has cleaned 
 # the rows are the chemical features and the columns are the samples 
 df_all_is <- read.csv("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/data/R01_150_isomeric_clean_dataset_2.0.csv")
@@ -255,34 +256,6 @@ df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, us_
 # merge with chemical data 
 df_m <- left_join(df_t, df_c)
 
-# descriptive statistics 
-# calculated versus medical record age
-#table(df_m$mage, exclude=NULL)
-table(df_m$age_dlvry_mr, exclude=NULL)
-
-df_m %>% summarise(mean=mean(age_dlvry_mr), sd=sqrt(var(age_dlvry_mr)))
-df_m %>% group_by(mat_race_eth) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
-df_m %>% group_by(marital) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
-df_m %>% group_by(mat_edu) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
-df_m %>% group_by(hh_income_cat) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
-df_m %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
-
-
-# test whether the distributions differ across categories 
-# can't do one-way anova, at least on untransformed data, because it's very skewed and/or bimodal 
-# could test difference in medians using Wilcoxon rank sum test 
-
-# Aolin's paper used the following
-# kruskal-wallis rank sum test was used to compare the rank order of peak area values 
-# this does one-way ANOVA on ranks, and is a non-parametric test to tell whether samples came from the same distribution 
-# is an extension of the Mann-Whitney U test which is only for 2 samples 
-# the parametric version is just one-way ANOVA 
-# for suspect features in fewer than 20% of participants, she used Fisher's exact test 
-# adjust for multiple comparisons using B-H FDR 
-# Aolin did a log-2 transform 
-
-# I have paired samples though -- how to deal with that?
-# for now just analyze them separately 
 
 # bring all demographic vars to the front of the data set 
 df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, 
@@ -327,8 +300,78 @@ ggplot(df_ms, aes(x=factor(get(dem)), y=get(names(list_80pct)[i]))) +
 
 
 bplot("occupation", 5)
+bplot("prod_daily_sunscreen",5)
+
+       
+rplot <- function(dem, i) {
+ ggplot(df_ms_serum, aes(x = df_ms_serum[[names(list_80pct)[i]]], y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
+                scale_fill_viridis(name=names(list_80pct)[i]) + theme_ridges() + labs(x=names(list_80pct)[i], y=dem) + geom_vline(xintercept = 2*10^5, linetype=2)
+}
 
 
+rplot("occupation",38)
+
+rcbplot <- function(dem, i) {
+        ggplot(df_ms_cb, aes(x = df_ms_cb[[names(list_80pct)[i]]], y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
+                scale_fill_viridis(name=names(list_80pct)[i]) + theme_ridges() + labs(x=names(list_80pct)[i], y=dem) + geom_vline(xintercept = 2*10^5, linetype=2)
+}
+
+
+rcbplot("occupation",38)
+
+# make data long so you can group by chemicals 
+df_ms_cb_long <- df_ms_cb %>% gather(key="chem_id", value="abundance", names(list_80pct))
+df_ms_cb_long <- df_ms_cb_long %>% arrange(sample_id, chem_id)
+
+df_ms_cb_long <- df_ms_cb_long  %>% group_by(chem_id) %>% mutate(max_abundance = max(abundance, na.rm=T))
+
+rcbplot_long <- function(dem, lim0, lim1) {
+        ggplot(df_ms_cb_long %>% filter(max_abundance>=lim0 & max_abundance<lim1), aes(x = abundance, y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
+                scale_fill_viridis("Abundance") + theme_ridges() + labs(x="Abundance", y=dem) + geom_vline(xintercept = 2*10^5, linetype=2) + 
+                facet_wrap(~chem_id)
+}
+
+
+rcbplot_long("prepared_freq", lim0=5*10^6, lim1=1*10^7)
+rcbplot_long("prepared_freq", lim0=1*10^7, lim1=1.5*10^7)
+rcbplot_long("prepared_freq", lim0=1.5*10^7, lim1=1.75*10^7)
+rcbplot_long("prepared_freq", lim0=1.75*10^7, lim1=2*10^7)
+rcbplot_long("prepared_freq", lim0=2*10^7, lim1=2.5*10^7)
+rcbplot_long("prepared_freq", lim0=2.5*10^7, lim1=5*10^7)
+rcbplot_long("prepared_freq", lim0=5*10^7, lim1=1*10^8)
+rcbplot_long("prepared_freq", lim0=1*10^8, lim1=5*10^8)
+rcbplot_long("prepared_freq", lim0=5*10^8, lim1=1*10^10)
+
+
+
+# descriptive statistics 
+# calculated versus medical record age
+#table(df_m$mage, exclude=NULL)
+table(df_m$age_dlvry_mr, exclude=NULL)
+
+df_m %>% summarise(mean=mean(age_dlvry_mr), sd=sqrt(var(age_dlvry_mr)))
+df_m %>% group_by(mat_race_eth) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(marital) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(mat_edu) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(hh_income_cat) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+df_m %>% group_by(us_born) %>% summarise(N=n())  %>% mutate(proportion = N/sum(N)) 
+
+
+# test whether the distributions differ across categories 
+# can't do one-way anova, at least on untransformed data, because it's very skewed and/or bimodal 
+# could test difference in medians using Wilcoxon rank sum test 
+
+# Aolin's paper used the following
+# kruskal-wallis rank sum test was used to compare the rank order of peak area values 
+# this does one-way ANOVA on ranks, and is a non-parametric test to tell whether samples came from the same distribution 
+# is an extension of the Mann-Whitney U test which is only for 2 samples 
+# the parametric version is just one-way ANOVA 
+# for suspect features in fewer than 20% of participants, she used Fisher's exact test 
+# adjust for multiple comparisons using B-H FDR 
+# Aolin did a log-2 transform 
+
+# I have paired samples though -- how to deal with that?
+# for now just analyze them separately 
 
 
 # maternal serum descriptive stats 
