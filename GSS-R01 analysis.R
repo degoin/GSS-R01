@@ -325,22 +325,25 @@ df_ms_cb_long <- df_ms_cb_long %>% arrange(sample_id, chem_id)
 
 df_ms_cb_long <- df_ms_cb_long  %>% group_by(chem_id) %>% mutate(max_abundance = max(abundance, na.rm=T))
 
-rcbplot_long <- function(dem, lim0, lim1) {
-        ggplot(df_ms_cb_long %>% filter(max_abundance>=lim0 & max_abundance<lim1), aes(x = abundance, y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
+rplot_long <- function(data, dem, lim0, lim1) {
+    p <-    ggplot(get(data) %>% filter(max_abundance>=lim0 & max_abundance<lim1), aes(x = abundance, y=factor(get(dem)), fill=..x..)) +  
+                geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
                 scale_fill_viridis("Abundance") + theme_ridges() + labs(x="Abundance", y=dem) + geom_vline(xintercept = 2*10^5, linetype=2) + 
-                facet_wrap(~chem_id)
+                facet_wrap(~chem_id) + scale_x_continuous(labels=scales::scientific)
+    dir.create(file.path("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/results/plots", dem))
+    ggsave(p, file=paste0("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/results/plots/",dem,"/density_plot_",data,"_",lim0,"_",lim1,".pdf"), width=20)
 }
 
 
-rcbplot_long("prepared_freq", lim0=5*10^6, lim1=1*10^7)
-rcbplot_long("prepared_freq", lim0=1*10^7, lim1=1.5*10^7)
-rcbplot_long("prepared_freq", lim0=1.5*10^7, lim1=1.75*10^7)
-rcbplot_long("prepared_freq", lim0=1.75*10^7, lim1=2*10^7)
-rcbplot_long("prepared_freq", lim0=2*10^7, lim1=2.5*10^7)
-rcbplot_long("prepared_freq", lim0=2.5*10^7, lim1=5*10^7)
-rcbplot_long("prepared_freq", lim0=5*10^7, lim1=1*10^8)
-rcbplot_long("prepared_freq", lim0=1*10^8, lim1=5*10^8)
-rcbplot_long("prepared_freq", lim0=5*10^8, lim1=1*10^10)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=5*10^6, lim1=1*10^7)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=1*10^7, lim1=1.5*10^7)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=1.5*10^7, lim1=1.75*10^7)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=1.75*10^7, lim1=2*10^7)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=2*10^7, lim1=2.5*10^7)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=2.5*10^7, lim1=5*10^7)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=5*10^7, lim1=1*10^8)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=1*10^8, lim1=5*10^8)
+rplot_long("df_ms_cb_long", "prepared_freq", lim0=5*10^8, lim1=1*10^10)
 
 
 
