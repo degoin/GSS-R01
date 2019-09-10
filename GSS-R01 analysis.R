@@ -248,23 +248,25 @@ df$hh_income_cat3 <-  ifelse(df$income_hh==16,3,
  
  
  
- # for now just keep race, education, income, and nativity
+ # for now just keep some of the variables
  
-df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, us_born, age_dlvry_mr, 
-                      occupation, takeout_freq, prepared_freq, products_daily, products_today, cleaning_daily, cleaning_today)
+df_c <- df %>% select(ppt_id, mat_race_eth, mat_edu, marital, hh_income_cat, us_born, age_dlvry_mr, employment,
+                      occupation, alcohol, ever_smk, vitamin_cat, takeout_freq, prepared_freq, products_daily, 
+                      products_today, cleaning_daily, cleaning_today)
  
 # merge with chemical data 
 df_m <- left_join(df_t, df_c)
 
 
 # bring all demographic vars to the front of the data set 
-df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, 
-                        occupation, takeout_freq, prepared_freq, products_daily, products_today, cleaning_daily, cleaning_today, everything())
+df_m <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, employment,
+                        occupation, alcohol, ever_smk, vitamin_cat, takeout_freq, prepared_freq, products_daily, products_today, 
+                        cleaning_daily, cleaning_today, everything())
 
 # replace with 0 if abundance was below 2*10^5  -- check if this is really 10^4
 
 for(i in 1:length(chems)){
-        print(i)
+       # print(i)
         df_m[[chems[i]]] <- ifelse(df_m[[chems[i]]]<2*10^5,0, df_m[[chems[i]]])
 }
 
@@ -278,8 +280,8 @@ length(list_80pct)
 # there are 121 with more than 80% above abundance cutoff 
 
 df_ms <- df_m %>% select(sample_id, ppt_id, sample_type, mat_race_eth, marital, mat_edu, hh_income_cat, us_born, age_dlvry_mr, 
-                         occupation, takeout_freq, prepared_freq, products_daily, products_today, cleaning_daily, cleaning_today, 
-                         names(list_80pct))
+                         employment, occupation, alcohol, ever_smk, vitamin_cat, takeout_freq, prepared_freq, products_daily, 
+                         products_today, cleaning_daily, cleaning_today, names(list_80pct))
 
 
 # maternal serum 
@@ -290,60 +292,81 @@ df_ms_serum <- df_ms %>% filter(sample_type=="M")
 # cord blood 
 df_ms_cb <- df_ms %>% filter(sample_type=="C")
 
-# see how presence of chemicals differs by demographics 
-
-bplot <- function(dem, i) {
-ggplot(df_ms, aes(x=factor(get(dem)), y=get(names(list_80pct)[i]))) + 
-        theme_bw()  + geom_boxplot() + labs(x="",y=names(list_80pct)[i]) 
-        
-}
-
-
-bplot("occupation", 5)
-bplot("prod_daily_sunscreen",5)
-
-       
-rplot <- function(dem, i) {
- ggplot(df_ms_serum, aes(x = df_ms_serum[[names(list_80pct)[i]]], y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
-                scale_fill_viridis(name=names(list_80pct)[i]) + theme_ridges() + labs(x=names(list_80pct)[i], y=dem) + geom_vline(xintercept = 2*10^5, linetype=2)
-}
-
-
-rplot("occupation",38)
-
-rcbplot <- function(dem, i) {
-        ggplot(df_ms_cb, aes(x = df_ms_cb[[names(list_80pct)[i]]], y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
-                scale_fill_viridis(name=names(list_80pct)[i]) + theme_ridges() + labs(x=names(list_80pct)[i], y=dem) + geom_vline(xintercept = 2*10^5, linetype=2)
-}
-
-
-rcbplot("occupation",38)
-
 # make data long so you can group by chemicals 
-df_ms_cb_long <- df_ms_cb %>% gather(key="chem_id", value="abundance", names(list_80pct))
-df_ms_cb_long <- df_ms_cb_long %>% arrange(sample_id, chem_id)
 
-df_ms_cb_long <- df_ms_cb_long  %>% group_by(chem_id) %>% mutate(max_abundance = max(abundance, na.rm=T))
+# maternal serum samples
+ms <- df_ms_serum %>% gather(key="chem_id", value="abundance", names(list_80pct))
+ms <- ms %>% arrange(sample_id, chem_id)
 
+ms <- ms  %>% group_by(chem_id) %>% mutate(max_abundance = max(abundance, na.rm=T))
+
+
+# cord blood samples
+cb <- df_ms_cb %>% gather(key="chem_id", value="abundance", names(list_80pct))
+cb <- cb %>% arrange(sample_id, chem_id)
+
+cb <- cb  %>% group_by(chem_id) %>% mutate(max_abundance = max(abundance, na.rm=T))
+
+# define vector of data sets 
+datasets <- c("cb","ms")
+datasets <- c("ms")
+
+
+# define function for creating ridge plots
 rplot_long <- function(data, dem, lim0, lim1) {
     p <-    ggplot(get(data) %>% filter(max_abundance>=lim0 & max_abundance<lim1), aes(x = abundance, y=factor(get(dem)), fill=..x..)) +  
                 geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
                 scale_fill_viridis("Abundance") + theme_ridges() + labs(x="Abundance", y=dem) + geom_vline(xintercept = 2*10^5, linetype=2) + 
                 facet_wrap(~chem_id) + scale_x_continuous(labels=scales::scientific)
     dir.create(file.path("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/results/plots", dem))
-    ggsave(p, file=paste0("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/results/plots/",dem,"/density_plot_",data,"_",lim0,"_",lim1,".pdf"), width=20)
+    dir.create(file.path(paste0("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/results/plots/", dem), data))
+    
+    ggsave(p, file=paste0("/Users/danagoin/Documents/Research projects/CiOB-ECHO/Projects/R01 GSS New Methods/results/plots/",dem,"/",data,"/density_plot_",lim0,"_",lim1,".pdf"), width=20)
+}
+
+rplot <- function(data, dem, lim0, lim1) {
+        out <- tryCatch( {
+                rplot_long(data, dem, lim0, lim1)
+        }, 
+        error = function(cond) {
+                message(cond)
+                return(NULL)
+        })
+        return(out)
+}
+
+# define vector of demographic / behavioral factors 
+demos <- c("mat_race_eth", "marital", "mat_edu", "hh_income_cat","us_born","employment","occupation",
+           "ever_smk","alcohol","vitamin_cat","takeout_freq", "prepared_freq", 
+           "prod_daily_shampoo", "prod_daily_makeup","prod_daily_hairspray", "prod_daily_lipbalm", "prod_daily_lotion",
+           "prod_daily_sunscreen", "prod_daily_deodorant", "prod_daily_vagwash",  "prod_daily_perfume","prod_daily_nailpolish",
+           "prod_daily_colgate", "prod_today_shampoo",  "prod_today_makeup", "prod_today_hairspray", "prod_today_lipbalm", 
+           "prod_today_lotion", "prod_today_sunscreen", "prod_today_deodorant", "prod_today_vagwash", "prod_today_perfume", 
+           "prod_today_nailpolish", "prod_today_colgate", "cln_daily_bleach", "cln_daily_airfresh",  "cln_daily_ammonia",  
+           "cln_daily_candles", "cln_daily_solvents",  "cln_daily_sprays", "cln_daily_polish", "cln_today_bleach",    
+           "cln_today_airfresh", "cln_today_ammonia", "cln_today_candles", "cln_today_solvents", "cln_today_sprays", "cln_today_polish")
+
+for (d in 1:length(datasets)) {
+        for (x in 1:length(demos)) {
+                print(paste0(datasets[d],"-", demos[x]))
+                rplot(datasets[d], demos[x], lim0=5*10^6, lim1=1*10^7)
+                rplot(datasets[d], demos[x], lim0=1*10^7, lim1=1.5*10^7)
+                rplot(datasets[d], demos[x], lim0=1.5*10^7, lim1=1.75*10^7)
+                rplot(datasets[d], demos[x], lim0=1.75*10^7, lim1=2*10^7)
+                rplot(datasets[d], demos[x], lim0=2*10^7, lim1=2.5*10^7)
+                rplot(datasets[d], demos[x], lim0=2.5*10^7, lim1=5*10^7)
+                rplot(datasets[d], demos[x], lim0=5*10^7, lim1=1*10^8)
+                rplot(datasets[d], demos[x], lim0=1*10^8, lim1=5*10^8)
+                rplot(datasets[d], demos[x], lim0=5*10^8, lim1=1*10^10)
+        }
 }
 
 
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=5*10^6, lim1=1*10^7)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=1*10^7, lim1=1.5*10^7)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=1.5*10^7, lim1=1.75*10^7)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=1.75*10^7, lim1=2*10^7)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=2*10^7, lim1=2.5*10^7)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=2.5*10^7, lim1=5*10^7)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=5*10^7, lim1=1*10^8)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=1*10^8, lim1=5*10^8)
-rplot_long("df_ms_cb_long", "prepared_freq", lim0=5*10^8, lim1=1*10^10)
+# next could see if the proportion of detectable levels differs by group
+# -- this likely won't be that different but maybe would help address the outlier issue?
+
+# next could also look into coding the food frequency questionnaire 
+
 
 
 
@@ -428,3 +451,32 @@ kruskal.test(C24H49NO3_16.186764 ~ latina_coo, data=df_ms)
 kruskal.test(C24H49NO3_16.186764 ~ marital, data=df_ms)
 
 
+
+# see how presence of chemicals differs by demographics 
+
+bplot <- function(dem, i) {
+        ggplot(df_ms, aes(x=factor(get(dem)), y=get(names(list_80pct)[i]))) + 
+                theme_bw()  + geom_boxplot() + labs(x="",y=names(list_80pct)[i]) 
+        
+}
+
+
+bplot("occupation", 5)
+bplot("prod_daily_sunscreen",5)
+
+
+rplot <- function(dem, i) {
+        ggplot(df_ms_serum, aes(x = df_ms_serum[[names(list_80pct)[i]]], y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
+                scale_fill_viridis(name=names(list_80pct)[i]) + theme_ridges() + labs(x=names(list_80pct)[i], y=dem) + geom_vline(xintercept = 2*10^5, linetype=2)
+}
+
+
+rplot("occupation",38)
+
+rcbplot <- function(dem, i) {
+        ggplot(df_ms_cb, aes(x = df_ms_cb[[names(list_80pct)[i]]], y=factor(get(dem)), fill=..x..)) +  geom_density_ridges_gradient(scale=3, rel_min_height=0.01) +
+                scale_fill_viridis(name=names(list_80pct)[i]) + theme_ridges() + labs(x=names(list_80pct)[i], y=dem) + geom_vline(xintercept = 2*10^5, linetype=2)
+}
+
+
+rcbplot("occupation",38)
